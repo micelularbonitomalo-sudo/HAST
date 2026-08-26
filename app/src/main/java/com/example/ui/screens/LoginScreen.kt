@@ -10,6 +10,9 @@ import androidx.compose.ui.unit.dp
 import com.example.viewmodel.AppViewModel
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Eco
+
 import kotlinx.coroutines.launch
 import android.app.Activity
 import android.content.Context
@@ -35,21 +38,48 @@ fun LoginScreen(viewModel: AppViewModel) {
     var smsCode by remember { mutableStateOf("") }
     var usePhoneAuth by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
     ) {
-        Icon(
-            imageVector = Icons.Default.AccountCircle,
-            contentDescription = "Login",
-            modifier = Modifier.size(100.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("Bienvenido a Casa Campo", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Frutas, verduras y más a domicilio.", style = MaterialTheme.typography.bodyLarge)
+        Column(
+            modifier = Modifier.fillMaxSize().padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Surface(
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(120.dp)
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Eco,
+                    contentDescription = "Casa Campo Logo",
+                    modifier = Modifier.padding(24.dp).size(72.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+            Text(
+                "Casa Campo", 
+                style = MaterialTheme.typography.displaySmall, 
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "DEL CAMPO A TU MESA", 
+                style = MaterialTheme.typography.labelLarge, 
+                color = MaterialTheme.colorScheme.primary,
+                letterSpacing = 2.sp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                "Inicia sesión para gestionar el inventario, punto de venta y control de gastos.", 
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         
         Spacer(modifier = Modifier.height(32.dp))
         
@@ -152,5 +182,6 @@ fun LoginScreen(viewModel: AppViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(text = authError!!, color = MaterialTheme.colorScheme.error)
         }
+    }
     }
 }

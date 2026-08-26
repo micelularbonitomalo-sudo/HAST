@@ -47,35 +47,39 @@ fun AdminScreen(viewModel: AppViewModel) {
             Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
                 // Header Casa Campo
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp)
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(56.dp)
                         ) {
-                            Icon(Icons.Default.Eco, contentDescription = null, tint = Color.White, modifier = Modifier.padding(12.dp))
+                            Icon(Icons.Default.Eco, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(12.dp))
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("Casa Campo", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Surface(
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    shape = RoundedCornerShape(16.dp)
-                                ) {
-                                    Text("FRUTERÍA SOLIDARIA", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
-                                }
                             }
-                            Text("DEL CAMPO A TU MESA · PRECIOS JUSTOS", style = MaterialTheme.typography.bodySmall, color = Color.Gray, letterSpacing = 1.sp)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("FRUTERÍA SOLIDARIA", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary, letterSpacing = 1.5.sp)
+                            }
                         }
                     }
-                    IconButton(onClick = { viewModel.signOut() }) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Salir", tint = MaterialTheme.colorScheme.onBackground)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.clickable { viewModel.signOut() }
+                    ) {
+                        Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Salir", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Salir", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
                 
@@ -279,12 +283,13 @@ fun AdminInventoryScreen(viewModel: AppViewModel) {
 @Composable
 fun DashboardCard(title: String, value: String, subtitle: String, bgColor: Color, contentColor: Color, modifier: Modifier = Modifier) {
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         color = bgColor,
-        modifier = modifier.height(120.dp)
+        modifier = modifier.height(130.dp),
+        shadowElevation = 2.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Text(title, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = contentColor.copy(alpha = 0.8f))
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Text(title, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = contentColor.copy(alpha = 0.8f), letterSpacing = 1.sp)
             Column {
                 Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = contentColor)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.8f))
@@ -436,8 +441,14 @@ fun PosScreen(viewModel: AppViewModel) {
         }
         
         // Ticket / Cart (Right side)
-        Column(modifier = Modifier.weight(1f).padding(16.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(24.dp)).padding(24.dp)) {
-            Text("Ticket Actual", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Surface(
+            modifier = Modifier.weight(1f).padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 2.dp
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text("Ticket Actual", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
             
             LazyColumn(modifier = Modifier.weight(1f)) {
@@ -482,6 +493,7 @@ fun PosScreen(viewModel: AppViewModel) {
                 Text("Limpiar Ticket", color = MaterialTheme.colorScheme.onBackground)
             }
         }
+    }
     }
 }
 

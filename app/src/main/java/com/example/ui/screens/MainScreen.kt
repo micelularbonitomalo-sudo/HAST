@@ -11,7 +11,7 @@ import com.example.data.UserRole
 fun MainScreen(viewModel: AppViewModel) {
     val user by viewModel.currentUser.collectAsState()
     
-    Box(modifier = Modifier.fillMaxSize()) {
+    androidx.compose.material3.Surface(modifier = Modifier.fillMaxSize(), color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
         if (user == null) {
             LoginScreen(viewModel)
         } else {
