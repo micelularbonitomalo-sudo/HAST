@@ -42,7 +42,15 @@ class FirestoreRepository {
     }
     
     suspend fun updateProduct(product: Product) {
-        db.collection("products").document(product.id).set(product).await()
+        if (product.id.isNotEmpty()) {
+            db.collection("products").document(product.id).set(product).await()
+        }
+    }
+    
+    suspend fun deleteProduct(productId: String) {
+        if (productId.isNotEmpty()) {
+            db.collection("products").document(productId).delete().await()
+        }
     }
 
     fun getProductsFlow(): Flow<List<Product>> = callbackFlow {

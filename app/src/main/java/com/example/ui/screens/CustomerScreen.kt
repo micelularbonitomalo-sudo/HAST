@@ -384,8 +384,15 @@ fun CartScreen(viewModel: AppViewModel) {
                 modifier = Modifier.fillMaxWidth()
             )
             
+
             Spacer(modifier = Modifier.height(16.dp))
+            val appError by viewModel.authError.collectAsState()
+            if (appError != null) {
+                Text(text = appError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
             Button(
+
                 onClick = { viewModel.checkoutWithMercadoPago(address, shippingCost) },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 enabled = address.isNotBlank()

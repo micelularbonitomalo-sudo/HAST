@@ -10,7 +10,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.google.firebase.messaging.FirebaseMessaging
 import com.example.ui.screens.MainScreen
+
 import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.AppViewModel
 import com.google.firebase.FirebaseApp
@@ -22,6 +30,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+
         try {
             if (FirebaseApp.getApps(this).isEmpty()) {
                 FirebaseApp.initializeApp(this)
@@ -30,6 +39,9 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             Log.e("FirebaseInit", "Failed to initialize Firebase in MainActivity", e)
         }
+        
+        requestNotificationPermission()
+
         
         handleIntent(intent)
         
@@ -42,6 +54,33 @@ class MainActivity : ComponentActivity() {
                 ) {
                     MainScreen(viewModel)
                 }
+            }
+        }
+    }
+
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                retrieveFcmToken()
+            } else {
+                val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+                    if (isGranted) {
+                        retrieveFcmToken()
+                    }
+                }
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        } else {
+            retrieveFcmToken()
+        }
+    }
+
+    private fun retrieveFcmToken() {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result
+                viewModel.updateFcmToken(token)
             }
         }
     }

@@ -144,12 +144,21 @@ class AppViewModel : ViewModel() {
                 val user = repository?.getUser(firebaseUser.uid)
                 val isMaster = firebaseUser.email == "gm521947@gmail.com" || firebaseUser.phoneNumber == "+528132641024"
                 if (user != null) {
+
                     if (isMaster && user.role != UserRole.ADMIN) {
                         changeUserRole(user.uid, UserRole.ADMIN)
                         _currentUser.value = user.copy(role = UserRole.ADMIN)
                     } else {
                         _currentUser.value = user
                     }
+                    cachedFcmToken?.let { token ->
+                        if (_currentUser.value?.fcmToken != token) {
+                            val updated = _currentUser.value!!.copy(fcmToken = token)
+                            repository?.saveUser(updated)
+                            _currentUser.value = updated
+                        }
+                    }
+
                 } else {
                     val role = determineInitialRole(firebaseUser)
                     val newUser = User(
@@ -357,6 +366,41 @@ class AppViewModel : ViewModel() {
         }
     }
     
+    fun updateProduct(product: Product) {
+        viewModelScope.launch {
+            if (verifyAdminAccess()) {
+                repository?.updateProduct(product)
+            } else {
+                _authError.value = "Acceso denegado: Requiere permisos de administrador"
+            }
+        }
+    }
+    
+    fun deleteProduct(productId: String) {
+        viewModelScope.launch {
+            if (verifyAdminAccess()) {
+                repository?.deleteProduct(productId)
+            } else {
+                _authError.value = "Acceso denegado: Requiere permisos de administrador"
+            }
+        }
+    }
+    
+
+    private var cachedFcmToken: String? = null
+    
+    fun updateFcmToken(token: String) {
+        cachedFcmToken = token
+        viewModelScope.launch {
+            val user = _currentUser.value
+            if (user != null && user.fcmToken != token) {
+                val updatedUser = user.copy(fcmToken = token)
+                repository?.saveUser(updatedUser)
+                _currentUser.value = updatedUser
+            }
+        }
+    }
+
     // Cart Actions
     fun addToCart(cartItem: CartItem) {
         val current = _cart.value.toMutableList()
