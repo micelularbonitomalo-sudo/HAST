@@ -153,13 +153,13 @@ class FirestoreRepository {
         db.collection("orders").document(orderId).update(updates)
     }
     
-    fun preRegisterStaff(phoneNumber: String, role: UserRole) {
-        val data = mapOf("phoneNumber" to phoneNumber, "role" to role.name)
-        db.collection("pre_staff").document(phoneNumber).set(data)
+    fun preRegisterStaff(identifier: String, role: UserRole) {
+        val data = mapOf("identifier" to identifier, "role" to role.name)
+        db.collection("pre_staff").document(identifier).set(data)
     }
     
-    suspend fun checkPreRegisteredStaff(phoneNumber: String): UserRole? {
-        val doc = db.collection("pre_staff").document(phoneNumber).get().await()
+    suspend fun checkPreRegisteredStaff(identifier: String): UserRole? {
+        val doc = db.collection("pre_staff").document(identifier).get().await()
         if (doc.exists()) {
             val roleStr = doc.getString("role")
             return if (roleStr != null) UserRole.valueOf(roleStr) else null

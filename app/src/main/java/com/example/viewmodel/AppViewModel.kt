@@ -146,10 +146,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun determineInitialRole(firebaseUser: com.google.firebase.auth.FirebaseUser): UserRole {
         val isMaster = firebaseUser.email == "gm521947@gmail.com" || firebaseUser.phoneNumber == "+528132641024"
         if (isMaster) return UserRole.ADMIN
+
+        val email = firebaseUser.email
+        if (email != null) {
+            val preRole = repository?.checkPreRegisteredStaff(email)
+            if (preRole != null) return preRole
+        }
         val phone = firebaseUser.phoneNumber
         if (phone != null) {
-            val preRegisteredRole = repository?.checkPreRegisteredStaff(phone)
-            if (preRegisteredRole != null) return preRegisteredRole
+            val preRole = repository?.checkPreRegisteredStaff(phone)
+            if (preRole != null) return preRole
         }
         return UserRole.CUSTOMER
     }
@@ -347,10 +353,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     // Admin Actions
-    fun preRegisterStaff(phoneNumber: String, role: UserRole) {
+    fun preRegisterStaff(identifier: String, role: UserRole) {
         viewModelScope.launch {
             if (verifyAdminAccess()) {
-                repository?.preRegisterStaff(phoneNumber, role)
+                repository?.preRegisterStaff(identifier, role)
             } else {
                 _authError.value = "Acceso denegado: Requiere permisos de administrador"
             }
