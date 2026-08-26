@@ -1,6 +1,8 @@
 package com.example.data
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.PersistentCacheSettings
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -9,10 +11,37 @@ import kotlinx.coroutines.channels.awaitClose
 import com.google.firebase.firestore.Query
 
 class FirestoreRepository {
-    private val db = FirebaseFirestore.getInstance()
 
-    suspend fun saveUser(user: User) {
-        db.collection("users").document(user.uid).set(user).await()
+    // Cart Synchronization
+    fun syncCart(userId: String, items: List<CartItem>) {
+        db.collection("carts").document(userId).set(CartDocument(items))
+    }
+    
+    fun getCartFlow(userId: String): Flow<List<CartItem>> = callbackFlow {
+        val listener = db.collection("carts").document(userId).addSnapshotListener { snapshot, _ ->
+            if (snapshot != null && snapshot.exists()) {
+                val cartDoc = snapshot.toObject(CartDocument::class.java)
+                trySend(cartDoc?.items ?: emptyList())
+            } else {
+                trySend(emptyList())
+            }
+        }
+        awaitClose { listener.remove() }
+    }
+
+    private val db = FirebaseFirestore.getInstance().apply {
+        val settings = FirebaseFirestoreSettings.Builder()
+            .setLocalCacheSettings(
+                PersistentCacheSettings.newBuilder()
+                    .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                    .build()
+            )
+            .build()
+        firestoreSettings = settings
+    }
+
+    fun saveUser(user: User) {
+        db.collection("users").document(user.uid).set(user)
     }
 
     suspend fun getUser(uid: String): User? {
@@ -30,26 +59,26 @@ class FirestoreRepository {
         awaitClose { listener.remove() }
     }
 
-    suspend fun updateUserRole(uid: String, role: UserRole) {
-        db.collection("users").document(uid).update("role", role).await()
+    fun updateUserRole(uid: String, role: UserRole) {
+        db.collection("users").document(uid).update("role", role)
     }
 
     // Products
-    suspend fun addProduct(product: Product) {
+    fun addProduct(product: Product) {
         val ref = db.collection("products").document()
         val productWithId = product.copy(id = ref.id)
-        ref.set(productWithId).await()
+        ref.set(productWithId)
     }
     
-    suspend fun updateProduct(product: Product) {
+    fun updateProduct(product: Product) {
         if (product.id.isNotEmpty()) {
-            db.collection("products").document(product.id).set(product).await()
+            db.collection("products").document(product.id).set(product)
         }
     }
     
-    suspend fun deleteProduct(productId: String) {
+    fun deleteProduct(productId: String) {
         if (productId.isNotEmpty()) {
-            db.collection("products").document(productId).delete().await()
+            db.collection("products").document(productId).delete()
         }
     }
 
@@ -63,11 +92,32 @@ class FirestoreRepository {
         awaitClose { listener.remove() }
     }
 
+
+    // Expenses
+    fun addExpense(expense: Expense): String {
+        val ref = db.collection("expenses").document()
+        val expenseWithId = expense.copy(id = ref.id)
+        ref.set(expenseWithId)
+        return ref.id
+    }
+
+    fun getExpensesFlow(): Flow<List<Expense>> = callbackFlow {
+        val listener = db.collection("expenses")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot != null) {
+                    val expenses = snapshot.documents.mapNotNull { it.toObject(Expense::class.java) }
+                    trySend(expenses)
+                }
+            }
+        awaitClose { listener.remove() }
+    }
+
     // Orders
-    suspend fun createOrder(order: Order): String {
+    fun createOrder(order: Order): String {
         val ref = db.collection("orders").document()
         val orderWithId = order.copy(id = ref.id)
-        ref.set(orderWithId).await()
+        ref.set(orderWithId)
         return ref.id
     }
 
@@ -95,17 +145,17 @@ class FirestoreRepository {
         awaitClose { listener.remove() }
     }
 
-    suspend fun updateOrderStatus(orderId: String, status: OrderStatus, driverId: String? = null) {
+    fun updateOrderStatus(orderId: String, status: OrderStatus, driverId: String? = null) {
         val updates = mutableMapOf<String, Any>("status" to status)
         if (driverId != null) {
             updates["deliveryDriverId"] = driverId
         }
-        db.collection("orders").document(orderId).update(updates).await()
+        db.collection("orders").document(orderId).update(updates)
     }
     
-    suspend fun preRegisterStaff(phoneNumber: String, role: UserRole) {
+    fun preRegisterStaff(phoneNumber: String, role: UserRole) {
         val data = mapOf("phoneNumber" to phoneNumber, "role" to role.name)
-        db.collection("pre_staff").document(phoneNumber).set(data).await()
+        db.collection("pre_staff").document(phoneNumber).set(data)
     }
     
     suspend fun checkPreRegisteredStaff(phoneNumber: String): UserRole? {

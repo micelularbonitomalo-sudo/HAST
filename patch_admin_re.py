@@ -3,7 +3,15 @@ import re
 with open('app/src/main/java/com/example/ui/screens/AdminScreen.kt', 'r') as f:
     content = f.read()
 
-reports_screen = """
+# I will replace from @Composable fun ReportsScreen(viewModel: AppViewModel) { ... } all the way down to @Composable fun PosScreen(viewModel: AppViewModel) { ... } and the rest of the file
+# Since we have the code for InventoryMovementScreen, ReportsScreen and PosScreen, let's just assemble the bottom of the file.
+
+match = re.search(r'(@Composable\s*fun ReportsScreen\(viewModel: AppViewModel\)\s*\{)', content)
+if match:
+    # Truncate content right before ReportsScreen
+    content = content[:match.start()]
+
+reports_and_pos = """
 @Composable
 fun ReportsScreen(viewModel: AppViewModel) {
     val totalRevenue by viewModel.totalIncome.collectAsState()
@@ -60,7 +68,7 @@ fun ReportsScreen(viewModel: AppViewModel) {
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                             Text(tx.description, style = MaterialTheme.typography.bodyLarge)
                             Text(tx.type, style = MaterialTheme.typography.bodySmall, color = androidx.compose.ui.graphics.Color.Gray)
@@ -111,9 +119,7 @@ fun ReportsScreen(viewModel: AppViewModel) {
         )
     }
 }
-"""
 
-pos_screen = """
 @Composable
 fun PosScreen(viewModel: AppViewModel) {
     val products by viewModel.localProducts.collectAsState()
@@ -193,6 +199,5 @@ fun PosScreen(viewModel: AppViewModel) {
 }
 """
 
-content = re.sub(r'@Composable\s*fun ReportsScreen.*?\}', '', content, flags=re.DOTALL)
-content = re.sub(r'@Composable\s*fun PosScreen.*?\}', '', content, flags=re.DOTALL)
-# It's highly likely the previous regex matched poorly or left trailing braces. Let's do a more robust approach.
+with open('app/src/main/java/com/example/ui/screens/AdminScreen.kt', 'w') as f:
+    f.write(content + reports_and_pos)

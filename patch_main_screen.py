@@ -1,13 +1,9 @@
-package com.example.ui.screens
+import re
 
-import androidx.compose.runtime.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.example.viewmodel.AppViewModel
-import com.example.data.UserRole
+with open('app/src/main/java/com/example/ui/screens/MainScreen.kt', 'r') as f:
+    content = f.read()
 
-@Composable
+new_content = """@Composable
 fun MainScreen(viewModel: AppViewModel) {
     val user by viewModel.currentUser.collectAsState()
     
@@ -41,4 +37,9 @@ fun MainScreen(viewModel: AppViewModel) {
             }
         }
     }
-}
+}"""
+
+content = re.sub(r'@Composable\s*fun MainScreen.*?\}', new_content, content, flags=re.DOTALL)
+
+with open('app/src/main/java/com/example/ui/screens/MainScreen.kt', 'w') as f:
+    f.write(content)

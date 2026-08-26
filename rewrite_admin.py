@@ -3,16 +3,44 @@ import re
 with open('app/src/main/java/com/example/ui/screens/AdminScreen.kt', 'r') as f:
     content = f.read()
 
-reports_screen = """
+# Replace product queries
+content = content.replace("viewModel.localProducts", "viewModel.products")
+content = content.replace("com.example.data.local.ProductEntity", "Product")
+content = content.replace("viewModel.deleteLocalProduct", "viewModel.deleteProduct")
+
+content = re.sub(r'viewModel\.updateLocalProduct\(productToEdit\!\!\.copy\(name = name, price = price, stock = stock\)\)', 
+                 r'viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock))', content)
+
+content = re.sub(r'viewModel\.addLocalProduct\(name, price, stock\)',
+                 r'viewModel.addProduct(Product(name = name, price = price, stock = stock))', content)
+
+
+# InventoryMovementScreen
+inv_mov_tx = r'viewModel\.addTransaction\(type = type, amount = amt, description = finalDesc\)'
+inv_mov_tx_repl = """if (isEntry) {
+                                        viewModel.addExpense(finalDesc, amt)
+                                    } else {
+                                        viewModel.addDirectSale(amt, finalDesc)
+                                    }"""
+content = re.sub(inv_mov_tx, inv_mov_tx_repl, content)
+content = content.replace("viewModel.updateLocalProduct(selectedProduct!!.copy(stock = newStock))", "viewModel.updateProduct(selectedProduct!!.copy(stock = newStock))")
+
+
+# Strip everything from ReportsScreen onwards
+match = re.search(r'(@Composable\s*fun ReportsScreen\(viewModel: AppViewModel\)\s*\{)', content)
+if match:
+    content = content[:match.start()]
+
+reports_and_pos = """
 @Composable
 fun ReportsScreen(viewModel: AppViewModel) {
-    val totalRevenue by viewModel.totalIncome.collectAsState()
-    val totalExpenses by viewModel.totalExpenses.collectAsState()
-    val transactions by viewModel.localTransactions.collectAsState()
+    val orders by viewModel.orders.collectAsState()
+    val expenses by viewModel.expenses.collectAsState()
     
-    val rev = totalRevenue ?: 0.0
-    val exp = totalExpenses ?: 0.0
-    val netProfit = rev - exp
+    val activeOrders = orders.filter { it.status != OrderStatus.CANCELLED }
+    val totalRevenue = activeOrders.sumOf { it.totalAmount }
+    val totalExpenses = expenses.sumOf { it.amount }
+    val netProfit = totalRevenue - totalExpenses
     
     var showExpenseDialog by remember { mutableStateOf(false) }
     
@@ -23,15 +51,15 @@ fun ReportsScreen(viewModel: AppViewModel) {
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Balance General (Local)", style = MaterialTheme.typography.titleMedium)
+                Text("Balance General (Nube)", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Ingresos Totales:", style = MaterialTheme.typography.bodyLarge)
-                    Text("$${"%.2f".format(rev)}", style = MaterialTheme.typography.bodyLarge, color = androidx.compose.ui.graphics.Color(0xFF4CAF50))
+                    Text("$${"%.2f".format(totalRevenue)}", style = MaterialTheme.typography.bodyLarge, color = androidx.compose.ui.graphics.Color(0xFF4CAF50))
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Egresos Totales:", style = MaterialTheme.typography.bodyLarge)
-                    Text("$${"%.2f".format(exp)}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+                    Text("$${"%.2f".format(totalExpenses)}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
                 }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -47,27 +75,51 @@ fun ReportsScreen(viewModel: AppViewModel) {
         }
         
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Historial de Movimientos", style = MaterialTheme.typography.titleMedium)
+        Text("Historial de Movimientos (Nube)", style = MaterialTheme.typography.titleMedium)
         
-        LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            items(transactions) { tx ->
-                val isIncome = tx.type == "INGRESO"
-                val color = if (isIncome) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
-                val sign = if (isIncome) "+" else "-"
-                
+        val allTx = mutableListOf<Pair<Long, @Composable () -> Unit>>()
+        
+        activeOrders.forEach { order ->
+            allTx.add(order.timestamp to {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                            Text(tx.description, style = MaterialTheme.typography.bodyLarge)
-                            Text(tx.type, style = MaterialTheme.typography.bodySmall, color = androidx.compose.ui.graphics.Color.Gray)
+                            Text("Venta: ${order.items.joinToString(", ")}", style = MaterialTheme.typography.bodyLarge)
+                            Text("INGRESO", style = MaterialTheme.typography.bodySmall, color = androidx.compose.ui.graphics.Color.Gray)
                         }
-                        Text("$sign$${"%.2f".format(tx.amount)}", color = color, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        Text("+$${"%.2f".format(order.totalAmount)}", color = androidx.compose.ui.graphics.Color(0xFF4CAF50), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                     }
                 }
+            })
+        }
+        
+        expenses.forEach { expense ->
+            allTx.add(expense.timestamp to {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text(expense.description, style = MaterialTheme.typography.bodyLarge)
+                            Text("EGRESO", style = MaterialTheme.typography.bodySmall, color = androidx.compose.ui.graphics.Color.Gray)
+                        }
+                        Text("-$${"%.2f".format(expense.amount)}", color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    }
+                }
+            })
+        }
+        
+        val sortedTx = allTx.sortedByDescending { it.first }
+        
+        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+            items(sortedTx.size) { idx ->
+                sortedTx[idx].second()
             }
         }
     }
@@ -100,7 +152,7 @@ fun ReportsScreen(viewModel: AppViewModel) {
                 Button(onClick = {
                     val amt = amount.toDoubleOrNull() ?: 0.0
                     if (description.isNotBlank() && amt > 0) {
-                        viewModel.addTransaction(type = "EGRESO", amount = amt, description = description)
+                        viewModel.addExpense(description, amt)
                         showExpenseDialog = false
                     }
                 }) { Text("Guardar") }
@@ -111,13 +163,11 @@ fun ReportsScreen(viewModel: AppViewModel) {
         )
     }
 }
-"""
 
-pos_screen = """
 @Composable
 fun PosScreen(viewModel: AppViewModel) {
-    val products by viewModel.localProducts.collectAsState()
-    val cart by viewModel.localCart.collectAsState()
+    val products by viewModel.products.collectAsState()
+    val cart by viewModel.cart.collectAsState()
     
     var searchQuery by remember { mutableStateOf("") }
     val filteredProducts = products.filter { it.name.contains(searchQuery, ignoreCase = true) }
@@ -137,7 +187,7 @@ fun PosScreen(viewModel: AppViewModel) {
                 items(filteredProducts) { product ->
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        onClick = { viewModel.addToLocalCart(product) }
+                        onClick = { viewModel.addToCart(com.example.data.CartItem(product = product, quantity = 1)) }
                     ) {
                         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Column {
@@ -158,15 +208,17 @@ fun PosScreen(viewModel: AppViewModel) {
             
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(cart) { item ->
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("${item.quantity}x ${item.product.name}")
-                        Text("$${"%.2f".format(item.product.price * item.quantity)}")
+                    if (item.product != null) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("${item.quantity}x ${item.product.name}")
+                            Text("$${"%.2f".format(item.product.price * item.quantity)}")
+                        }
                     }
                 }
             }
             
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            val total = cart.sumOf { it.product.price * it.quantity }
+            val total = cart.sumOf { (it.product?.price ?: 0.0) * it.quantity }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Total:", style = MaterialTheme.typography.headlineSmall)
                 Text("$${"%.2f".format(total)}", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
@@ -174,7 +226,7 @@ fun PosScreen(viewModel: AppViewModel) {
             
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = { viewModel.localPosCheckout() },
+                onClick = { viewModel.posCheckout() },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 enabled = cart.isNotEmpty()
             ) {
@@ -182,7 +234,7 @@ fun PosScreen(viewModel: AppViewModel) {
             }
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(
-                onClick = { viewModel.clearLocalCart() },
+                onClick = { viewModel.clearCart() },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = cart.isNotEmpty()
             ) {
@@ -193,6 +245,6 @@ fun PosScreen(viewModel: AppViewModel) {
 }
 """
 
-content = re.sub(r'@Composable\s*fun ReportsScreen.*?\}', '', content, flags=re.DOTALL)
-content = re.sub(r'@Composable\s*fun PosScreen.*?\}', '', content, flags=re.DOTALL)
-# It's highly likely the previous regex matched poorly or left trailing braces. Let's do a more robust approach.
+with open('app/src/main/java/com/example/ui/screens/AdminScreen.kt', 'w') as f:
+    f.write(content + reports_and_pos)
+

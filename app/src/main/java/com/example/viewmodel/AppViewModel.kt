@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.FirestoreRepository
 import com.example.data.Order
+import com.example.data.Expense
 import com.example.data.OrderStatus
 import com.example.data.Product
 import com.example.data.User
@@ -26,6 +27,7 @@ import com.google.firebase.auth.PhoneAuthProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import android.util.Log
@@ -37,7 +39,11 @@ import com.example.network.MPPreferenceRequest
 import com.example.network.RetrofitClient
 import com.example.BuildConfig
 
-class AppViewModel : ViewModel() {
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+
+class AppViewModel(application: Application) : AndroidViewModel(application) {
+
     private var auth: FirebaseAuth? = null
     private var repository: FirestoreRepository? = null
 
@@ -56,6 +62,10 @@ class AppViewModel : ViewModel() {
     private val _userOrders = MutableStateFlow<List<Order>>(emptyList())
     val userOrders: StateFlow<List<Order>> = _userOrders.asStateFlow()
     
+
+    private val _expenses = MutableStateFlow<List<Expense>>(emptyList())
+    val expenses: StateFlow<List<Expense>> = _expenses.asStateFlow()
+
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
     
@@ -95,6 +105,13 @@ class AppViewModel : ViewModel() {
             launch {
                 try {
                     repository?.getProductsFlow()?.collect { _products.value = it }
+
+                try {
+                    repository?.getExpensesFlow()?.collect { _expenses.value = it }
+                } catch (e: Exception) {
+                    Log.e("Sync", "Expenses sync error", e)
+                }
+
                 } catch (e: Exception) {
                     Log.e("Sync", "Products sync error", e)
                 }
@@ -401,15 +418,94 @@ class AppViewModel : ViewModel() {
         }
     }
 
+
+    
+    fun addDirectSale(amount: Double, description: String) {
+        val user = _currentUser.value
+        val order = Order(
+            customerId = user?.uid ?: "POS",
+            customerName = "Venta/Movimiento",
+            address = "Local",
+            totalAmount = amount,
+            status = OrderStatus.PAID,
+            items = listOf(description)
+        )
+        viewModelScope.launch {
+            repository?.createOrder(order)
+        }
+    }
+
+    fun addExpense(description: String, amount: Double, category: String = "General") {
+        viewModelScope.launch {
+            repository?.addExpense(Expense(description = description, amount = amount, category = category))
+        }
+    }
+
+    // POS Checkout
+
+    fun posCheckout() {
+        val items = _cart.value
+        if (items.isEmpty()) return
+        
+        var total = 0.0
+        val descriptions = mutableListOf<String>()
+        
+        items.forEach { item ->
+            if (item.product != null) {
+                total += item.product.price * item.quantity
+                descriptions.add("${item.quantity}x ${item.product.name}")
+                // Update stock
+                viewModelScope.launch {
+                    val updatedProduct = item.product.copy(stock = item.product.stock - item.quantity)
+                    repository?.updateProduct(updatedProduct)
+                }
+            }
+        }
+        
+        val user = _currentUser.value
+        
+        val order = Order(
+            customerId = user?.uid ?: "POS",
+            customerName = "Venta en Mostrador",
+            address = "Local",
+            totalAmount = total,
+            status = OrderStatus.PAID,
+            items = descriptions
+        )
+        
+        viewModelScope.launch {
+            repository?.createOrder(order)
+            clearCart()
+        }
+    }
+
     // Cart Actions
     fun addToCart(cartItem: CartItem) {
         val current = _cart.value.toMutableList()
-        current.add(cartItem)
+        val existingIndex = current.indexOfFirst { it.product?.id == cartItem.product?.id && it.product != null }
+        if (existingIndex >= 0) {
+            current[existingIndex] = current[existingIndex].copy(quantity = current[existingIndex].quantity + cartItem.quantity)
+        } else {
+            current.add(cartItem)
+        }
         _cart.value = current
+        
+        viewModelScope.launch {
+            val uid = _currentUser.value?.uid
+            if (uid != null) {
+                repository?.syncCart(uid, current)
+            }
+        }
     }
     
     fun clearCart() {
         _cart.value = emptyList()
+        viewModelScope.launch {
+            val uid = _currentUser.value?.uid
+            if (uid != null) {
+                repository?.syncCart(uid, emptyList())
+            }
+        }
     }
     
     private val _mercadoPagoUrl = MutableStateFlow<String?>(null)

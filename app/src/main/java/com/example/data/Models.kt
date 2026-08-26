@@ -69,3 +69,14 @@ enum class OrderStatus {
     DELIVERED,
     CANCELLED
 }
+
+data class Expense(
+    val id: String = "",
+    val description: String = "",
+    val amount: Double = 0.0,
+    val category: String = "General",
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+
+data class CartDocument(val items: List<CartItem> = emptyList())
