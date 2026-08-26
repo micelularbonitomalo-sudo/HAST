@@ -397,9 +397,9 @@ fun PosScreen(viewModel: AppViewModel) {
     var searchQuery by remember { mutableStateOf("") }
     val filteredProducts = products.filter { it.name.contains(searchQuery, ignoreCase = true) }
     
-    Row(modifier = Modifier.fillMaxSize()) {
-        // Products List (Left side)
-        Column(modifier = Modifier.weight(1.5f).padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Products List (Top side)
+        Column(modifier = Modifier.weight(1f).padding(16.dp)) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -440,12 +440,12 @@ fun PosScreen(viewModel: AppViewModel) {
             }
         }
         
-        // Ticket / Cart (Right side)
+        // Ticket / Cart (Bottom side)
         Surface(
-            modifier = Modifier.weight(1f).padding(16.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 250.dp, max = 350.dp).padding(16.dp),
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 2.dp
+            shadowElevation = 4.dp
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text("Ticket Actual", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
