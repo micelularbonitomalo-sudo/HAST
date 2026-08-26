@@ -1,0 +1,47 @@
+name: Generate Release AAB for Play Store
+
+on:
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+
+    - name: Decode Keystore for Release
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      run: |
+        if [ -n "$KEYSTORE_BASE64" ]; then
+          echo $KEYSTORE_BASE64 | base64 -d > release.keystore
+        else
+          echo "No KEYSTORE_BASE64 secret found. Will attempt debug build or fail."
+        fi
+
+    - name: Decode google-services.json
+      run: base64 -d app/google-services.json.base64 > app/google-services.json
+
+    - name: Build Release AAB
+      env:
+        KEYSTORE_PATH: ../release.keystore
+        STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: gradle bundleRelease --stacktrace --no-daemon
+
+    - name: Upload Release AAB
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release-aab
+        path: app/build/outputs/bundle/release/app-release.aab

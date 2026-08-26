@@ -1,0 +1,6 @@
+{
+  "name": "Casa Campo",
+  "description": "Tienda de frutas, verduras y productos de campo con envío a domicilio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

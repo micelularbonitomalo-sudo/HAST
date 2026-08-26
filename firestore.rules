@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función reutilizable para verificar si el usuario autenticado tiene el rol de ADMIN
+    function isAdmin() {
+      return request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+
+    // Reglas para la colección de Productos
+    match /products/{productId} {
+      // Cualquier usuario autenticado (clientes, staff, admin) puede leer los productos
+      allow read: if request.auth != null; 
+      
+      // SOLO los administradores pueden crear, modificar o eliminar productos
+      allow write: if isAdmin();
+    }
+
+    // Reglas básicas sugeridas para Usuarios
+    match /users/{userId} {
+      // Un usuario solo puede leer y editar su propio perfil, o un ADMIN puede ver/editar todos
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isAdmin();
+    }
+
+    // Reglas básicas sugeridas para Órdenes/Pedidos
+    match /orders/{orderId} {
+      // Solo el dueño de la orden o los perfiles de STAFF/ADMIN pueden interactuar con los pedidos
+      allow read, update: if request.auth != null && (
+        resource.data.customerId == request.auth.uid || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'STAFF']
+      );
+      // Cualquier usuario logueado puede crear una orden
+      allow create: if request.auth != null;
+    }
+  }
+}
