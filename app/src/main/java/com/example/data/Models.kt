@@ -80,3 +80,10 @@ data class Expense(
 
 
 data class CartDocument(val items: List<CartItem> = emptyList())
+
+
+data class AppConfig(
+    val latestVersionCode: Int = 1,
+    val downloadUrl: String = "",
+    val forceUpdate: Boolean = true
+)

@@ -43,6 +43,32 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
+    private val _updateRequired = MutableStateFlow(false)
+    val updateRequired: StateFlow<Boolean> = _updateRequired.asStateFlow()
+
+    private val _updateUrl = MutableStateFlow("")
+    val updateUrl: StateFlow<String> = _updateUrl.asStateFlow()
+    
+    fun checkForUpdates() {
+        viewModelScope.launch {
+            val config = repository?.getAppConfig()
+            if (config != null) {
+                // BuildConfig.VERSION_CODE is available at com.example.BuildConfig.VERSION_CODE
+                val currentVersion = com.example.BuildConfig.VERSION_CODE
+                if (config.latestVersionCode > currentVersion) {
+                    _updateUrl.value = config.downloadUrl
+                    _updateRequired.value = config.forceUpdate
+                }
+            }
+        }
+    }
+    
+    fun setAppConfig(versionCode: Int, url: String) {
+        viewModelScope.launch {
+            repository?.updateAppConfig(com.example.data.AppConfig(latestVersionCode = versionCode, downloadUrl = url))
+        }
+    }
+
 
     private var auth: FirebaseAuth? = null
     private var repository: FirestoreRepository? = null
@@ -79,6 +105,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private var dataSyncJob: kotlinx.coroutines.Job? = null
 
     init {
+        checkForUpdates()
         try {
             auth = FirebaseAuth.getInstance()
             repository = FirestoreRepository()
@@ -449,6 +476,38 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // POS Checkout
 
+        fun boxCheckout(boxPrice: Double, boxName: String, boxItems: Map<Product, Double>) {
+        if (boxItems.isEmpty()) return
+        
+        val descriptions = mutableListOf<String>()
+        
+        boxItems.forEach { (product, quantity) ->
+            descriptions.add("${"%.2f".format(quantity)}kg ${product.name}")
+            // Update stock
+            viewModelScope.launch {
+                val updatedProduct = product.copy(stock = product.stock - quantity)
+                repository?.updateProduct(updatedProduct)
+            }
+        }
+        
+        val user = _currentUser.value
+        
+        val order = Order(
+            customerId = user?.uid ?: "POS_BOX",
+            customerName = "Venta $boxName",
+            address = "Local",
+            totalAmount = boxPrice,
+            status = OrderStatus.PAID,
+            items = descriptions
+        )
+        
+        viewModelScope.launch {
+            repository?.createOrder(order)
+            
+
+        }
+    }
+    
     fun posCheckout() {
         val items = _cart.value
         if (items.isEmpty()) return

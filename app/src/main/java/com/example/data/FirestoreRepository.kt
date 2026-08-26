@@ -11,6 +11,24 @@ import kotlinx.coroutines.channels.awaitClose
 import com.google.firebase.firestore.Query
 
 class FirestoreRepository {
+    suspend fun getAppConfig(): AppConfig? {
+        return try {
+            val snapshot = db.collection("config").document("app_settings").get().await()
+            if (snapshot.exists()) {
+                snapshot.toObject(AppConfig::class.java)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    suspend fun updateAppConfig(config: AppConfig) {
+        try {
+            db.collection("config").document("app_settings").set(config).await()
+        } catch (e: Exception) { }
+    }
 
     // Cart Synchronization
     fun syncCart(userId: String, items: List<CartItem>) {

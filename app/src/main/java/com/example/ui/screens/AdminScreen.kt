@@ -40,7 +40,7 @@ import com.example.data.CartItem
 fun AdminScreen(viewModel: AppViewModel) {
     var selectedTab by remember { mutableIntStateOf(0) }
     
-    val tabs = listOf("Inventario", "Punto de Venta", "Flujos y Gastos", "Historial", "Usuarios")
+    val tabs = listOf("Inventario", "Punto de Venta", "Armar Cajas", "Flujos y Gastos", "Historial", "Usuarios")
 
     Scaffold(
         topBar = {
@@ -70,6 +70,63 @@ fun AdminScreen(viewModel: AppViewModel) {
                             }
                         }
                     }
+                    
+                    var showUpdateDialog by remember { mutableStateOf(false) }
+                    
+                    if (showUpdateDialog) {
+                        var newVersion by remember { mutableStateOf((com.example.BuildConfig.VERSION_CODE + 1).toString()) }
+                        var url by remember { mutableStateOf("") }
+                        
+                        AlertDialog(
+                            onDismissRequest = { showUpdateDialog = false },
+                            title = { Text("Lanzar Actualización") },
+                            text = {
+                                Column {
+                                    Text("Los empleados verán un bloqueo en su pantalla obligándolos a descargar esta nueva versión.")
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    OutlinedTextField(
+                                        value = newVersion,
+                                        onValueChange = { newVersion = it },
+                                        label = { Text("Nuevo Version Code (actual: ${com.example.BuildConfig.VERSION_CODE})") },
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    OutlinedTextField(
+                                        value = url,
+                                        onValueChange = { url = it },
+                                        label = { Text("URL de Descarga (Link de Drive)") },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            },
+                            confirmButton = {
+                                Button(onClick = {
+                                    val vc = newVersion.toIntOrNull() ?: (com.example.BuildConfig.VERSION_CODE + 1)
+                                    viewModel.setAppConfig(vc, url)
+                                    showUpdateDialog = false
+                                }) {
+                                    Text("Forzar Actualización")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showUpdateDialog = false }) { Text("Cancelar") }
+                            }
+                        )
+                    }
+                    
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.clickable { showUpdateDialog = true }
+                    ) {
+                        Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.SystemUpdateAlt, contentDescription = "Actualizar", tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -80,6 +137,7 @@ fun AdminScreen(viewModel: AppViewModel) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Salir", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                         }
+                    }
                     }
                 }
                 
@@ -106,7 +164,8 @@ fun AdminScreen(viewModel: AppViewModel) {
                                 val icon = when(index) {
                                     0 -> Icons.Default.Inventory2
                                     1 -> Icons.Default.PointOfSale
-                                    2 -> Icons.Default.AccountBalanceWallet
+                                    2 -> Icons.Default.CardGiftcard
+                                    3 -> Icons.Default.AccountBalanceWallet
                                     else -> Icons.Default.ReceiptLong
                                 }
                                 Icon(icon, contentDescription = null, tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(18.dp))
@@ -133,9 +192,10 @@ fun AdminScreen(viewModel: AppViewModel) {
             when (selectedTab) {
                 0 -> AdminInventoryScreen(viewModel)
                 1 -> PosScreen(viewModel)
-                2 -> FlujosGastosScreen(viewModel)
-                3 -> HistorialScreen(viewModel)
-                4 -> UsuariosScreen(viewModel)
+                2 -> ArmarCajasScreen(viewModel)
+                3 -> FlujosGastosScreen(viewModel)
+                4 -> HistorialScreen(viewModel)
+                5 -> UsuariosScreen(viewModel)
             }
         }
     }
@@ -697,6 +757,166 @@ fun UsuariosScreen(viewModel: AppViewModel) {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ArmarCajasScreen(viewModel: AppViewModel) {
+    val products by viewModel.products.collectAsState()
+    
+    data class BoxOption(val price: Double, val productLimit: Int)
+    val boxOptions = listOf(
+        BoxOption(250.0, 10),
+        BoxOption(300.0, 13),
+        BoxOption(350.0, 16),
+        BoxOption(400.0, 19)
+    )
+    
+    var selectedOption by remember { mutableStateOf(boxOptions[0]) }
+    val selectedProducts = remember { androidx.compose.runtime.mutableStateListOf<Product>() }
+    
+    val targetCost = selectedOption.price - 100.0
+    
+    val budgetPerProduct = if (selectedProducts.isNotEmpty()) targetCost / selectedProducts.size else 0.0
+    
+    val calculatedBoxItems = selectedProducts.associateWith { product ->
+        if (product.cost > 0) budgetPerProduct / product.cost else 0.0
+    }
+    
+    Row(modifier = Modifier.fillMaxSize()) {
+        // Products List (Left side)
+        Column(modifier = Modifier.weight(1.5f).padding(16.dp)) {
+            Text("Selecciona el tamaño de la caja:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                boxOptions.forEach { option ->
+                    val isSelected = selectedOption == option
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                        border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.clickable {
+                            selectedOption = option
+                            selectedProducts.clear()
+                        }
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Caja $${"%.0f".format(option.price)}", fontWeight = FontWeight.Bold, color = if (isSelected) Color.White else MaterialTheme.colorScheme.onBackground)
+                            Text("Máx. ${option.productLimit} productos", style = MaterialTheme.typography.bodySmall, color = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray)
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Productos Disponibles (Haz clic para seleccionar)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyColumn {
+                items(products) { product ->
+                    val isSelected = selectedProducts.contains(product)
+                    val isDisabled = !isSelected && selectedProducts.size >= selectedOption.productLimit
+                    
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).clickable(enabled = !isDisabled) {
+                            if (isSelected) {
+                                selectedProducts.remove(product)
+                            } else {
+                                selectedProducts.add(product)
+                            }
+                        },
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column {
+                                Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                                Text("Costo Prov: $${"%.2f".format(product.cost)}/kg", color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha=0.7f) else Color.Gray, style = MaterialTheme.typography.bodySmall)
+                            }
+                            if (isSelected) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = "Seleccionado", tint = MaterialTheme.colorScheme.primary)
+                            } else if (isDisabled) {
+                                Icon(Icons.Default.Block, contentDescription = "Límite alcanzado", tint = Color.Gray)
+                            } else {
+                                Icon(Icons.Default.AddCircleOutline, contentDescription = "Agregar", tint = Color.Gray)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Box Configuration (Right side)
+        Surface(
+            modifier = Modifier.weight(1f).fillMaxHeight().padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 2.dp
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text("Armando Caja $${"%.0f".format(selectedOption.price)}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Productos Seleccionados:", style = MaterialTheme.typography.bodyMedium)
+                            Text("${selectedProducts.size} / ${selectedOption.productLimit}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Costo Exacto de la Caja:", style = MaterialTheme.typography.bodyMedium)
+                            Text("$${"%.2f".format(if (selectedProducts.isEmpty()) 0.0 else targetCost)}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Ganancia Fija:", style = MaterialTheme.typography.bodyMedium)
+                            Text("$${"%.2f".format(100.0)}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Instrucciones de Armado:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                if (selectedProducts.isEmpty()) {
+                    Text("Selecciona productos de la lista para ver las cantidades exactas que debes poner en la caja.", color = Color.Gray)
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(calculatedBoxItems.entries.toList()) { (product, quantity) ->
+                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(product.name, fontWeight = FontWeight.Medium)
+                                    Text("Presupuesto: $${"%.2f".format(budgetPerProduct)}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                }
+                                Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(8.dp)) {
+                                    Text("PONER: ${"%.2f".format(quantity)} kg", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.weight(1f))
+                
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                
+                Button(
+                    onClick = {
+                        viewModel.boxCheckout(selectedOption.price, "Caja ${"%.0f".format(selectedOption.price)}", calculatedBoxItems)
+                        selectedProducts.clear()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(32.dp),
+                    enabled = selectedProducts.isNotEmpty(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                ) {
+                    Text("Finalizar y Vender Caja", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
         }
