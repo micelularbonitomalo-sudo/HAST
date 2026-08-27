@@ -58,6 +58,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 if (config.latestVersionCode > currentVersion) {
                     _updateUrl.value = config.downloadUrl
                     _updateRequired.value = config.forceUpdate
+                } else if (currentVersion > config.latestVersionCode) {
+                    // AUTO-PUBLISH: Si esta app tiene una version mayor y es admin, actualiza Firebase automáticamente
+                    val userRole = _currentUser.value?.role
+                    if (userRole == UserRole.ADMIN) {
+                        viewModelScope.launch {
+                            repository?.updateAppConfig(
+                                com.example.data.AppConfig(
+                                    latestVersionCode = currentVersion,
+                                    downloadUrl = config.downloadUrl,
+                                    forceUpdate = true
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -115,6 +129,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _currentUser.collect { user ->
                     if (user != null) {
                         startDataSync()
+                        checkForUpdates()
                     } else {
                         dataSyncJob?.cancel()
                     }

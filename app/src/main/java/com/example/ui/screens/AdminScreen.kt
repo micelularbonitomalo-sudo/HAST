@@ -28,6 +28,11 @@ import com.patrykandpatrick.vico.compose.chart.column.columnChart
 import com.patrykandpatrick.vico.core.entry.entryModelOf
 import com.example.data.UserRole
 import androidx.compose.foundation.horizontalScroll
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
+
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +41,29 @@ import androidx.compose.ui.text.style.TextAlign
 import com.example.data.CartItem
 
 @OptIn(ExperimentalMaterial3Api::class)
+
+fun getProductImage(name: String, url: String): String {
+    if (url.isNotEmpty()) return url
+    val n = name.lowercase()
+    return when {
+        n.contains("plátano") || n.contains("platano") || n.contains("banana") -> "https://images.unsplash.com/photo-1481349518771-20055b2a7b24?w=500&q=80"
+        n.contains("manzana") -> "https://images.unsplash.com/photo-1560806887-1e4cd0b6f447?w=500&q=80"
+        n.contains("naranja") -> "https://images.unsplash.com/photo-1547514701-42782101795e?w=500&q=80"
+        n.contains("fresa") -> "https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=500&q=80"
+        n.contains("sandía") || n.contains("sandia") -> "https://images.unsplash.com/photo-1587049352847-4d4b12405407?w=500&q=80"
+        n.contains("melón") || n.contains("melon") -> "https://images.unsplash.com/photo-1589739900243-4b52cd9b104e?w=500&q=80"
+        n.contains("tomate") || n.contains("jitomate") -> "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&q=80"
+        n.contains("cebolla") -> "https://images.unsplash.com/photo-1618512496248-a0bfe71ada8c?w=500&q=80"
+        n.contains("limón") || n.contains("limon") -> "https://images.unsplash.com/photo-1590502593747-422987994667?w=500&q=80"
+        n.contains("aguacate") -> "https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=500&q=80"
+        n.contains("papa") -> "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&q=80"
+        n.contains("huevo") -> "https://images.unsplash.com/photo-1587486913049-53fc88980cfc?w=500&q=80"
+        n.contains("pollo") -> "https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=500&q=80"
+        n.contains("carne") || n.contains("res") || n.contains("cerdo") -> "https://images.unsplash.com/photo-1603048297172-c92544798d5e?w=500&q=80"
+        else -> "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=500&q=80" // Default fresh produce
+    }
+}
+
 @Composable
 fun AdminScreen(viewModel: AppViewModel) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -291,8 +319,13 @@ fun AdminInventoryScreen(viewModel: AppViewModel) {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.background, modifier = Modifier.size(40.dp)) {
-                                Icon(Icons.Default.LocalMall, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(8.dp))
+                            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.background, modifier = Modifier.size(56.dp), shadowElevation = 2.dp) {
+                                AsyncImage(
+                                    model = getProductImage(product.name, product.imageUrl),
+                                    contentDescription = product.name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
                             }
                             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                                 Text("${product.stock} ${product.unitType}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
@@ -327,11 +360,11 @@ fun AdminInventoryScreen(viewModel: AppViewModel) {
                 showAddDialog = false
                 productToEdit = null
             },
-            onSave = { name, cost, price, stock ->
+            onSave = { name, cost, price, stock, imageUrl ->
                 if (productToEdit != null) {
-                    viewModel.updateProduct(productToEdit!!.copy(name = name, cost = cost, price = price, stock = stock))
+                    viewModel.updateProduct(productToEdit!!.copy(name = name, cost = cost, price = price, stock = stock, imageUrl = imageUrl))
                 } else {
-                    viewModel.addProduct(Product(name = name, cost = cost, price = price, stock = stock))
+                    viewModel.addProduct(Product(name = name, cost = cost, price = price, stock = stock, imageUrl = imageUrl))
                 }
                 showAddDialog = false
                 productToEdit = null
@@ -359,8 +392,9 @@ fun DashboardCard(title: String, value: String, subtitle: String, bgColor: Color
 }
 
 @Composable
-fun ProductDialog(initialProduct: Product? = null, onDismiss: () -> Unit, onSave: (String, Double, Double, Double) -> Unit) {
+fun ProductDialog(initialProduct: Product? = null, onDismiss: () -> Unit, onSave: (String, Double, Double, Double, String) -> Unit) {
     var name by remember { mutableStateOf(initialProduct?.name ?: "") }
+    var imageUrl by remember { mutableStateOf(initialProduct?.imageUrl ?: "") }
     var stockStr by remember { mutableStateOf(if (initialProduct?.stock != null && initialProduct.stock > 0) initialProduct.stock.toString() else "") }
     
     val initialTotalPaid = if (initialProduct != null) initialProduct.stock * initialProduct.cost else 0.0
@@ -395,12 +429,28 @@ fun ProductDialog(initialProduct: Product? = null, onDismiss: () -> Unit, onSave
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
+                    value = imageUrl,
+                    onValueChange = { imageUrl = it },
+                    label = { Text("URL de la Foto (Opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
                     value = totalPaidStr,
                     onValueChange = { totalPaidStr = it },
                     label = { Text("¿Cuánto pagaste al proveedor? ($)") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = imageUrl,
+                    onValueChange = { imageUrl = it },
+                    label = { Text("URL de la Foto (Opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 
@@ -431,7 +481,7 @@ fun ProductDialog(initialProduct: Product? = null, onDismiss: () -> Unit, onSave
             Button(
                 onClick = {
                     if (name.isNotBlank() && parsedStock > 0 && parsedTotalPaid > 0) {
-                        onSave(name, unitCost, autoGeneratedPrice, parsedStock)
+                        onSave(name, unitCost, autoGeneratedPrice, parsedStock, imageUrl)
                     }
                 },
                 shape = RoundedCornerShape(24.dp),
@@ -484,8 +534,13 @@ fun PosScreen(viewModel: AppViewModel) {
                     ) {
                         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(48.dp)) {
-                                    Icon(Icons.Default.LocalMall, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(12.dp))
+                                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(56.dp), shadowElevation = 4.dp) {
+                                    AsyncImage(
+                                        model = getProductImage(product.name, product.imageUrl),
+                                        contentDescription = product.name,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column {
@@ -787,9 +842,9 @@ fun ArmarCajasScreen(viewModel: AppViewModel) {
         if (product.cost > 0) budgetPerProduct / product.cost else 0.0
     }
     
-    Row(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
         // Products List (Left side)
-        Column(modifier = Modifier.weight(1.5f).padding(16.dp)) {
+        Column(modifier = Modifier.weight(1.3f).padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text("Selecciona el tamaño de la caja:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -833,9 +888,20 @@ fun ArmarCajasScreen(viewModel: AppViewModel) {
                         )
                     ) {
                         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column {
-                                Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
-                                Text("Costo Prov: $${"%.2f".format(product.cost)}/kg", color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha=0.7f) else Color.Gray, style = MaterialTheme.typography.bodySmall)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(shape = RoundedCornerShape(12.dp), modifier = Modifier.size(48.dp), shadowElevation = 2.dp) {
+                                    AsyncImage(
+                                        model = getProductImage(product.name, product.imageUrl),
+                                        contentDescription = product.name,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                                    Text("Costo Prov: $${"%.2f".format(product.cost)}/kg", color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha=0.7f) else Color.Gray, style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                             if (isSelected) {
                                 Icon(Icons.Default.CheckCircle, contentDescription = "Seleccionado", tint = MaterialTheme.colorScheme.primary)
@@ -852,7 +918,7 @@ fun ArmarCajasScreen(viewModel: AppViewModel) {
         
         // Box Configuration (Right side)
         Surface(
-            modifier = Modifier.weight(1f).fillMaxHeight().padding(16.dp),
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 2.dp
